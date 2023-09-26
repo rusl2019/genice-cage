@@ -25,10 +25,13 @@ Options:
 * [JMM2011] Jacobson, L. C., Matsumoto, M. & Molinero, V. Order parameters for the multistep crystallization of clathrate hydrates. J. Chem. Phys. 135, 074501 (2011).[doi:10.1063/1.3613667](https://doi.org/10.1063/1.3613667)
 """
 
-desc = { "ref": { "JMM2011": 'Jacobson, L. C., Matsumoto, M. & Molinero, V. Order parameters for the multistep crystallization of clathrate hydrates. J. Chem. Phys. 135, 074501 (2011).[doi:10.1063/1.3613667](https://doi.org/10.1063/1.3613667)'},
-         "brief": "Cage analysis.",
-         "usage": __doc__,
-         }
+desc = {
+    "ref": {
+        "JMM2011": "Jacobson, L. C., Matsumoto, M. & Molinero, V. Order parameters for the multistep crystallization of clathrate hydrates. J. Chem. Phys. 135, 074501 (2011).[doi:10.1063/1.3613667](https://doi.org/10.1063/1.3613667)"
+    },
+    "brief": "Cage analysis.",
+    "usage": __doc__,
+}
 
 
 # standard modules
@@ -44,7 +47,7 @@ from attrdict import AttrDict
 
 # public modules developed by myself
 from cycless.polyhed import polyhedra_iter, cage_to_graph
-from cycless.cycles  import centerOfMass, cycles_iter
+from cycless.cycles import centerOfMass, cycles_iter
 import genice2.formats
 import yaplotlib as yp
 
@@ -63,7 +66,7 @@ def rangeparser(s, min=1, max=20):
                 w[1] = max
             else:
                 w[1] = int(w[1])
-            for x in range(w[0], w[1]+1):
+            for x in range(w[0], w[1] + 1):
                 values.add(x)
         else:
             values.add(int(v))
@@ -73,22 +76,25 @@ def rangeparser(s, min=1, max=20):
 class Format(genice2.formats.Format):
     def __init__(self, **kwargs):
         logger = getLogger()
-        options=AttrDict({"sizes":set(),
-                          "ring":None,
-                          "json":False,
-                          "gromacs":False,
-                          "yaplot":False,
-                          "quad":False,
-                          "python":False,
-        })
+        options = AttrDict(
+            {
+                "sizes": set(),
+                "ring": None,
+                "json": False,
+                "gromacs": False,
+                "yaplot": False,
+                "quad": False,
+                "python": False,
+            }
+        )
         unknown = dict()
         for k, v in kwargs.items():
             if k == "maxring":
-                options.ring = [x for x in range(3,int(v)+1)]
+                options.ring = [x for x in range(3, int(v) + 1)]
             elif k == "ring":
-                options.ring = rangeparser(v,min=3,max=8)
+                options.ring = rangeparser(v, min=3, max=8)
             elif k == "sizes":
-                options.sizes = rangeparser(v,min=3,max=20)
+                options.sizes = rangeparser(v, min=3, max=20)
             elif k in ("json", "JSON"):
                 options.json = v
             elif k in ("gromacs",):
@@ -99,26 +105,24 @@ class Format(genice2.formats.Format):
                 options.python = v
             elif k in ("quad",):
                 options.quad = v
-                options.sizes = set([12,14,15,16])
-                options.ring = set([5,6])
+                options.sizes = set([12, 14, 15, 16])
+                options.ring = set([5, 6])
             else:
                 # value list for cage sizes
-                options.sizes=rangeparser(k, min=3)
+                options.sizes = rangeparser(k, min=3)
         super().__init__(**kwargs)
 
         if len(options.sizes) == 0:
-            options.sizes = set([x for x in range(3,17)])
+            options.sizes = set([x for x in range(3, 17)])
         if options.ring is None:
-            options.ring = set([3,4,5,6,7,8])
+            options.ring = set([3, 4, 5, 6, 7, 8])
 
         logger.info("  Ring sizes: {0}".format(options.ring))
         logger.info("  Cage sizes: {0}".format(options.sizes))
         self.options = options
 
-
     def hooks(self):
-        return {2:self.Hook2, 6:self.Hook6}
-
+        return {2: self.Hook2, 6: self.Hook6}
 
     def Hook2(self, lattice):
         logger = getLogger()
@@ -126,16 +130,19 @@ class Format(genice2.formats.Format):
 
         cell = lattice.repcell.mat
         positions = lattice.reppositions
-        graph = nx.Graph(lattice.graph) #undirected
+        graph = nx.Graph(lattice.graph)  # undirected
         ringsize = self.options.ring
-        ringlist = [[int(x) for x in ring] for ring in cycles_iter(graph, max(ringsize), pos=positions)]
+        ringlist = [
+            [int(x) for x in ring]
+            for ring in cycles_iter(graph, max(ringsize), pos=positions)
+        ]
         ringpos = [centerOfMass(ringnodes, positions) for ringnodes in ringlist]
         logger.info("  Rings: {0}".format(len(ringlist)))
         maxcagesize = max(self.options.sizes)
         cages = []
         for cage in polyhedra_iter(ringlist, maxcagesize):
             if len(cage) in self.options.sizes:
-                valid=True
+                valid = True
                 for ringid in cage:
                     if len(ringlist[ringid]) not in ringsize:
                         valid = False
@@ -174,22 +181,26 @@ class Format(genice2.formats.Format):
             if self.options.json:
                 output = dict()
                 N = positions.shape[0]
-                output["op"] = {str(k):v for k,v in op.items()}
-                output["stat"] = {k:v/N for k,v in stat.items()}
+                output["op"] = {str(k): v for k, v in op.items()}
+                output["stat"] = {k: v / N for k, v in stat.items()}
                 print(json.dumps(output, indent=2, sort_keys=True))
             else:
                 for node in sorted(op):
                     print(node, op[node])
                 print("# Statistics")
                 for v in sorted(stat):
-                    print("{0} {1} {2}/{3}".format(v, stat[v]/positions.shape[0], stat[v], positions.shape[0]))
-            #ideal = {"CS2": {"2002": 0.7058823529411765,
+                    print(
+                        "{0} {1} {2}/{3}".format(
+                            v, stat[v] / positions.shape[0], stat[v], positions.shape[0]
+                        )
+                    )
+            # ideal = {"CS2": {"2002": 0.7058823529411765,
             #                 "3001": 0.23529411764705882,
             #                 "4000": 0.058823529411764705},
             #         "CS1": {"0400": 0.13043478260869565,
             #                 "1300": 0.8695652173913043},
-            #}
-            #for ref in ideal:
+            # }
+            # for ref in ideal:
             #    dKL = 0
             #    for v in sorted(stat):
             #        if v in ideal[ref]:
@@ -199,8 +210,8 @@ class Format(genice2.formats.Format):
             output = dict()
             output["rings"] = ringlist
             output["cages"] = cages
-            output["ringpos"] = [[x,y,z] for x,y,z in ringpos]
-            output["cagepos"] = [[x,y,z] for x,y,z in cagepos]
+            output["ringpos"] = [[x, y, z] for x, y, z in ringpos]
+            output["cagepos"] = [[x, y, z] for x, y, z in cagepos]
             print(json.dumps(output, indent=2, sort_keys=True))
         elif self.options.yaplot:
             s = ""
@@ -213,16 +224,19 @@ class Format(genice2.formats.Format):
                         if node not in nodes:
                             # relative pos of the node
                             nodepos = positions[node] - cagepos[c]
-                            nodepos -= np.floor( nodepos + 0.5 )
+                            nodepos -= np.floor(nodepos + 0.5)
                             # shrink a little
                             nodes[node] = nodepos * 0.9
                     s += yp.Color(len(ns))
                     s += yp.Layer(cagesize)
-                    polygon = (np.array([nodes[node] for node in ns]) + cagepos[c]) @ cell
+                    polygon = (
+                        np.array([nodes[node] for node in ns]) + cagepos[c]
+                    ) @ cell
                     s += yp.Polygon(polygon)
             print(s)
         elif self.options.python:
             import graphstat as gs
+
             db = gs.GraphStat()
             labels = set()
             g_id2label = dict()
@@ -247,13 +261,20 @@ class Format(genice2.formats.Format):
         else:
             # human-friendly redundant format
             for cageid, cage in enumerate(cages):
-                print("Cage {0}: ({1}, {2}, {3}) {4} hedron".format(cageid, *cagepos[cageid], len(cage)))
+                print(
+                    "Cage {0}: ({1}, {2}, {3}) {4} hedron".format(
+                        cageid, *cagepos[cageid], len(cage)
+                    )
+                )
                 for ringid in sorted(cage):
-                    print("  Ring {0}: ({1}, {2}, {3}) {4} gon".format(ringid, *ringpos[ringid], len(ringlist[ringid])))
+                    print(
+                        "  Ring {0}: ({1}, {2}, {3}) {4} gon".format(
+                            ringid, *ringpos[ringid], len(ringlist[ringid])
+                        )
+                    )
                     print("    Nodes: {0}".format(ringlist[ringid]))
         logger.info("Hook2: end.")
-        return True # terminate
-
+        return True  # terminate
 
     def Hook6(self, lattice):
         logger = getLogger()
@@ -277,22 +298,33 @@ class Format(genice2.formats.Format):
             for mol in cagemols:
                 for atom in mols[mol]:
                     resno, resname, atomname, position, order = atom
-                    f += "{0:5d}{1:5s}{2:>5s}{3:5d}{4:8.3f}{5:8.3f}{6:8.3f}\n".format(order,resname, atomname, atomcount+1,position[0],position[1],position[2])
+                    f += "{0:5d}{1:5s}{2:>5s}{3:5d}{4:8.3f}{5:8.3f}{6:8.3f}\n".format(
+                        order,
+                        resname,
+                        atomname,
+                        atomcount + 1,
+                        position[0],
+                        position[1],
+                        position[2],
+                    )
                     atomcount += 1
             s += "{0}\n".format(atomcount) + f
-            if cellmat[1,0] == 0 and cellmat[2,0] == 0 and cellmat[2,1] == 0:
-                s += "    {0} {1} {2}\n".format(cellmat[0,0],cellmat[1,1],cellmat[2,2])
-            else:
-                assert cellmat[0,1] == 0 and cellmat[0,2] == 0 and cellmat[1,2] == 0
-                s += "    {0} {1} {2} {3} {4} {5} {6} {7} {8}\n".format(cellmat[0,0],
-                                cellmat[1,1],
-                                cellmat[2,2],
-                                cellmat[0,1],
-                                cellmat[0,2],
-                                cellmat[1,0],
-                                cellmat[1,2],
-                                cellmat[2,0],
-                                cellmat[2,1],
+            if cellmat[1, 0] == 0 and cellmat[2, 0] == 0 and cellmat[2, 1] == 0:
+                s += "    {0} {1} {2}\n".format(
+                    cellmat[0, 0], cellmat[1, 1], cellmat[2, 2]
                 )
-        print(s,end="")
+            else:
+                assert cellmat[0, 1] == 0 and cellmat[0, 2] == 0 and cellmat[1, 2] == 0
+                s += "    {0} {1} {2} {3} {4} {5} {6} {7} {8}\n".format(
+                    cellmat[0, 0],
+                    cellmat[1, 1],
+                    cellmat[2, 2],
+                    cellmat[0, 1],
+                    cellmat[0, 2],
+                    cellmat[1, 0],
+                    cellmat[1, 2],
+                    cellmat[2, 0],
+                    cellmat[2, 1],
+                )
+        print(s, end="")
         logger.info("Hook6: end.")

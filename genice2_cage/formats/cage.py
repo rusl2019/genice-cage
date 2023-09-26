@@ -41,11 +41,13 @@ import json
 import string
 from logging import getLogger
 from collections import defaultdict, Counter
+
 # from math import log2
 
 # external modules
 import networkx as nx
 import numpy as np
+
 # old and not python3.11 compat
 # from attrdict import AttrDict
 
@@ -69,12 +71,14 @@ def assign_unused_label(basename, labels):
 
 
 def make_cage_expression(ring_ids, ringlist):
-    # list the sizes of rings in the ringlist
-    ringsizes = np.array([len(ring) for ring in ringlist])
-    # count the occurrences
-    values, counts = np.unique(ringsizes, return_counts=True)
-    # sort and stringify
-    index = " ".join([f"{ringsize}^{counts[i]}" for i, ringsize in enumerate(values)])
+    ringcount = [0 for _ in range(9)]
+    for ring in ring_ids:
+        ringcount[len(ringlist[ring])] += 1
+    index = []
+    for i in range(9):
+        if ringcount[i] > 0:
+            index.append(f"{i}^{ringcount[i]}")
+    index = " ".join(index)
     return index
 
 
@@ -102,23 +106,24 @@ def rangeparser(s, min=1, max=20):
 class Format(genice2.formats.Format):
     def __init__(self, **kwargs):
         logger = getLogger()
-        options={"sizes":set(),
-            "ring":None,
-            "json":False,
-            "json2":False,
-            "gromacs":False,
-            "yaplot":False,
-            "quad":False,
-            "python":False,
+        options = {
+            "sizes": set(),
+            "ring": None,
+            "json": False,
+            "json2": False,
+            "gromacs": False,
+            "yaplot": False,
+            "quad": False,
+            "python": False,
         }
         unknown = dict()
         for k, v in kwargs.items():
             if k == "maxring":
-                options["ring"] = [x for x in range(3,int(v)+1)]
+                options["ring"] = [x for x in range(3, int(v) + 1)]
             elif k == "ring":
-                options["ring"] = rangeparser(v,min=3,max=8)
+                options["ring"] = rangeparser(v, min=3, max=8)
             elif k == "sizes":
-                options["sizes"] = rangeparser(v,min=3,max=20)
+                options["sizes"] = rangeparser(v, min=3, max=20)
             elif k in ("json", "JSON"):
                 options["json"] = v
             elif k in ("gromacs",):
@@ -248,6 +253,7 @@ class Format(genice2.formats.Format):
             output["cagepos"] = [[x, y, z] for x, y, z in cagepos]
             print(json.dumps(output, indent=2, sort_keys=True))
         elif self.options["json2"]:
+            cage_dict = {}
             for cage in cages:
                 g = cage_to_graph(cage, ringlist)
                 cagesize = len(cage)
@@ -264,6 +270,7 @@ class Format(genice2.formats.Format):
                     # cage expression
                     index = make_cage_expression(cage, ringlist)
                     logger.info(f"  Cage type: {label} ({index})")
+                    cage_dict[f"{label}"] = f"{index}"
                 else:
                     label = g_id2label[g_id]
                 cagetypes.append(label)
@@ -273,6 +280,8 @@ class Format(genice2.formats.Format):
             output = dict(
                 Rings=len(ringlist), Cages=len(cages), details=dict(Counter(cagetypes))
             )
+            for key in cage_dict:
+                output["details"][cage_dict[key]] = output["details"].pop(key)
             print(json.dumps(output, indent=2, sort_keys=True))
         elif self.options["yaplot"]:
             s = ""
